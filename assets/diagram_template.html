@@ -15,6 +15,9 @@
     --duplicate-bg: #fef2f2;
     --edge-color: #a3a3b8;
     --edge-color-active: #2f6fed;
+    --score-good: #16a34a;
+    --score-mid: #b45309;
+    --score-bad: #dc2626;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -27,17 +30,22 @@
       --duplicate-bg: #2a1616;
       --edge-color: #55556b;
       --edge-color-active: #6ea1ff;
+      --score-good: #22c55e;
+      --score-mid: #d99a3d;
+      --score-bad: #ef4444;
     }
   }
   :root[data-theme="dark"] {
     --bg: #14141c; --fg: #e8e8f0; --fg-muted: #a0a0b8; --panel-bg: #1b1b26;
     --panel-bg-2: #23232f; --border: #34344a; --duplicate-bg: #2a1616;
     --edge-color: #55556b; --edge-color-active: #6ea1ff;
+    --score-good: #22c55e; --score-mid: #d99a3d; --score-bad: #ef4444;
   }
   :root[data-theme="light"] {
     --bg: #ffffff; --fg: #1a1a2e; --fg-muted: #5b5b70; --panel-bg: #f7f7fb;
     --panel-bg-2: #eeeef4; --border: #dcdce6; --duplicate-bg: #fef2f2;
     --edge-color: #a3a3b8; --edge-color-active: #2f6fed;
+    --score-good: #16a34a; --score-mid: #b45309; --score-bad: #dc2626;
   }
   * { box-sizing: border-box; }
   body {
@@ -111,19 +119,64 @@
     color: var(--fg-muted); max-height: 220px; overflow-y: auto;
   }
   .hint { color: var(--fg-muted); font-size: 12px; padding: 2px 0; }
+
+  .score-badge {
+    display: flex; align-items: baseline; gap: 4px; padding: 4px 12px;
+    border-radius: 999px; font-weight: 700; font-size: 13px; color: #fff;
+  }
+  .score-badge .max { font-weight: 500; font-size: 10.5px; opacity: 0.85; }
+  .score-good { background: var(--score-good); }
+  .score-mid { background: var(--score-mid); }
+  .score-bad { background: var(--score-bad); }
+  .score-note { color: var(--fg-muted); font-size: 11px; margin-top: 8px; line-height: 1.4; }
+  .breakdown-row {
+    display: flex; justify-content: space-between; gap: 8px; font-size: 12px;
+    padding: 6px 0; border-bottom: 1px solid var(--border);
+  }
+  .breakdown-row:last-child { border-bottom: none; }
+  .breakdown-row .impact { font-weight: 700; flex-shrink: 0; }
+  .breakdown-row .impact.neg { color: var(--duplicate-color); }
+  .perf-card {
+    border: 1px solid var(--border); background: var(--panel-bg-2); border-radius: 8px;
+    padding: 8px 10px; margin-bottom: 8px; font-size: 12px;
+  }
+  .perf-card .kind {
+    display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em;
+    font-weight: 700; color: var(--duplicate-color); margin-bottom: 4px;
+  }
+  .search-bar { position: sticky; top: 0; z-index: 5; padding: 10px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  .search-bar input {
+    width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--panel-bg); color: var(--fg); font-size: 12.5px;
+  }
+  .col-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .col-chip {
+    background: var(--panel-bg); border: 1px solid var(--border); border-radius: 5px;
+    padding: 2px 7px; font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
 </style>
 
 <header>
   <h1 id="title">SQL Source Map</h1>
   <span class="meta" id="subtitle"></span>
+  <span class="score-badge" id="scoreBadge" style="display:none"></span>
   <div class="tabs" id="tabs"></div>
 </header>
 <div id="warningBanner" class="warning-banner" style="display:none"></div>
 <main>
   <div class="diagram-pane" id="diagramPane">
+    <div class="search-bar">
+      <input type="text" id="searchBox" list="sourceList" placeholder="Search a source (table, CTE, subquery)…" autocomplete="off">
+      <datalist id="sourceList"></datalist>
+    </div>
     <svg id="svg"></svg>
   </div>
   <div class="sidebar">
+    <div class="panel">
+      <h2>Score</h2>
+      <div id="scoreBreakdown"></div>
+      <div class="score-note">Static-analysis estimate from DRY duplication, index/sargability red flags, and (lightly) structural complexity — not a measured execution cost. No live database or index metadata was consulted.</div>
+    </div>
     <div class="panel">
       <h2>Legend</h2>
       <div class="legend">
@@ -141,6 +194,10 @@
     <div class="panel">
       <h2>Possible DRY duplicates</h2>
       <div id="dupLogic"></div>
+    </div>
+    <div class="panel">
+      <h2>Index &amp; performance flags</h2>
+      <div id="perfFindings"></div>
     </div>
     <div class="panel" id="selectionPanel" style="display:none">
       <h2>Selected</h2>
@@ -258,8 +315,11 @@ function render() {
 
   svg.addEventListener('click', () => clearSelection(nodeEls, edgeEls));
 
+  renderScore(stmt);
   renderTableUsage(stmt);
   renderDupLogic(stmt, nodeEls, edgeEls);
+  renderPerfFindings(stmt);
+  buildSearchIndex(stmt);
 }
 
 function makeDraggable(g, id, edgeEls) {
@@ -320,10 +380,79 @@ function showDetail(n, stmt) {
   panel.style.display = 'block';
   let html = `<div class="detail-box"><div class="title">${escapeHtml(n.label)}</div>`;
   html += `<div class="hint">Type: ${n.type}</div>`;
-  if (n.sql) html += `<pre>${escapeHtml(n.sql)}</pre>`;
+  if (n.select_star) html += `<div class="hint">Uses SELECT * somewhere in this scope — some columns pulled from here may not be enumerated below.</div>`;
+  if (n.columns && n.columns.length) {
+    html += `<div class="hint">Columns referenced from this source downstream (${n.columns.length}):</div>`;
+    html += `<div class="col-list">${n.columns.map(c => `<span class="col-chip">${escapeHtml(c)}</span>`).join('')}</div>`;
+  } else if (n.type !== 'output') {
+    html += `<div class="hint">No specific columns resolved (only reached through an unqualified reference we couldn't attribute).</div>`;
+  }
+  if (n.sql) html += `<div class="hint" style="margin-top:8px">Body:</div><pre>${escapeHtml(n.sql)}</pre>`;
   html += `</div>`;
   box.innerHTML = html;
 }
+
+function renderScore(stmt) {
+  const badge = document.getElementById('scoreBadge');
+  const box = document.getElementById('scoreBreakdown');
+  const value = stmt.score.value;
+  badge.style.display = 'flex';
+  badge.className = 'score-badge ' + (value >= 85 ? 'score-good' : value >= 60 ? 'score-mid' : 'score-bad');
+  badge.innerHTML = `${value}<span class="max">/100</span>`;
+
+  if (!stmt.score.breakdown.length) {
+    box.innerHTML = '<div class="empty-note">No red flags found — nothing pulled the score down.</div>';
+    return;
+  }
+  box.innerHTML = stmt.score.breakdown.map(b => `
+    <div class="breakdown-row">
+      <span>${escapeHtml(b.factor)}<br><span class="hint">${escapeHtml(b.detail)}</span></span>
+      <span class="impact ${b.impact < 0 ? 'neg' : ''}">${b.impact > 0 ? '+' : ''}${b.impact}</span>
+    </div>`).join('');
+}
+
+function renderPerfFindings(stmt) {
+  const box = document.getElementById('perfFindings');
+  const findings = [
+    ...(stmt.sargability_findings || []).map(f => ({ label: f.type.replace(/_/g, ' '), detail: f.detail })),
+    ...(stmt.temp_object_findings || []).map(f => ({ label: 'unindexed temp object', detail: `${f.object} (${f.created_via}): ${f.note}` })),
+  ];
+  if (!findings.length) {
+    box.innerHTML = '<div class="empty-note">No sargability or temp-table indexing red flags found.</div>';
+    return;
+  }
+  box.innerHTML = findings.map(f => `
+    <div class="perf-card">
+      <span class="kind">${escapeHtml(f.label)}</span><br>
+      ${escapeHtml(f.detail)}
+    </div>`).join('');
+}
+
+function buildSearchIndex(stmt) {
+  const list = document.getElementById('sourceList');
+  list.innerHTML = stmt.nodes
+    .filter(n => n.type !== 'output')
+    .map(n => `<option value="${escapeHtml(n.label)}">`)
+    .join('');
+}
+
+function searchAndSelect(query) {
+  const stmt = DATA.statements[currentStatement];
+  const q = query.trim().toLowerCase();
+  if (!q) return;
+  const match = stmt.nodes.find(n => n.label.toLowerCase() === q) ||
+    stmt.nodes.find(n => n.label.toLowerCase().includes(q));
+  if (!match) return;
+  const nodeEls = {};
+  document.querySelectorAll('#svg .node').forEach(g => nodeEls[g.getAttribute('data-id')] = g);
+  const edgeEls = {};
+  selectNode(match, stmt, edgeEls, nodeEls);
+}
+
+document.getElementById('searchBox').addEventListener('change', (ev) => searchAndSelect(ev.target.value));
+document.getElementById('searchBox').addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') searchAndSelect(ev.target.value);
+});
 
 function renderTableUsage(stmt) {
   const box = document.getElementById('tableUsage');

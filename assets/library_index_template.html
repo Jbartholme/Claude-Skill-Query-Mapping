@@ -1,0 +1,180 @@
+<title>Shared SQL Query Library</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a2e; --fg-muted: #5b5b70; --panel-bg: #f7f7fb;
+    --panel-bg-2: #eeeef4; --border: #dcdce6; --accent: #2f6fed;
+    --duplicate-color: #dc2626; --duplicate-bg: #fef2f2;
+    --score-good: #16a34a; --score-mid: #b45309; --score-bad: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14141c; --fg: #e8e8f0; --fg-muted: #a0a0b8; --panel-bg: #1b1b26;
+      --panel-bg-2: #23232f; --border: #34344a; --accent: #6ea1ff;
+      --duplicate-bg: #2a1616;
+      --score-good: #22c55e; --score-mid: #d99a3d; --score-bad: #ef4444;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14141c; --fg: #e8e8f0; --fg-muted: #a0a0b8; --panel-bg: #1b1b26;
+    --panel-bg-2: #23232f; --border: #34344a; --accent: #6ea1ff; --duplicate-bg: #2a1616;
+    --score-good: #22c55e; --score-mid: #d99a3d; --score-bad: #ef4444;
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --fg: #1a1a2e; --fg-muted: #5b5b70; --panel-bg: #f7f7fb;
+    --panel-bg-2: #eeeef4; --border: #dcdce6; --accent: #2f6fed; --duplicate-bg: #fef2f2;
+    --score-good: #16a34a; --score-mid: #b45309; --score-bad: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg); min-height: 100vh;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  header { padding: 22px 28px; border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0 0 4px 0; font-size: 19px; }
+  header .meta { color: var(--fg-muted); font-size: 13px; }
+  .layout { display: grid; grid-template-columns: 1fr 320px; gap: 24px; padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .search-bar input {
+    width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel-bg); color: var(--fg); font-size: 13.5px; margin-bottom: 16px;
+  }
+  .entry-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+    background: var(--panel-bg); display: flex; justify-content: space-between; gap: 14px; align-items: flex-start;
+  }
+  .entry-card a.title-link { color: var(--fg); text-decoration: none; font-weight: 700; font-size: 14.5px; }
+  .entry-card a.title-link:hover { color: var(--accent); text-decoration: underline; }
+  .entry-meta { color: var(--fg-muted); font-size: 12px; margin-top: 4px; }
+  .entry-notes { font-size: 12.5px; margin-top: 6px; }
+  .tag-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border);
+    color: var(--fg-muted);
+  }
+  .tag.dup { color: var(--duplicate-color); border-color: var(--duplicate-color); background: var(--duplicate-bg); }
+  .score-pill {
+    flex-shrink: 0; color: #fff; font-weight: 700; border-radius: 999px; padding: 4px 12px; font-size: 13px;
+    text-align: center; min-width: 56px;
+  }
+  .score-good { background: var(--score-good); }
+  .score-mid { background: var(--score-mid); }
+  .score-bad { background: var(--score-bad); }
+  .panel { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--panel-bg); margin-bottom: 16px; }
+  .panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); margin: 0 0 10px 0; }
+  .fanout-row {
+    display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; padding: 6px 0;
+    border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .fanout-row:last-child { border-bottom: none; }
+  .fanout-row .count { color: var(--duplicate-color); font-weight: 700; flex-shrink: 0; }
+  .fanout-row:hover { color: var(--accent); }
+  .empty-note { color: var(--fg-muted); font-style: italic; font-size: 12.5px; }
+</style>
+
+<header>
+  <h1>Shared SQL Query Library</h1>
+  <span class="meta" id="subtitle"></span>
+</header>
+<div class="layout">
+  <div>
+    <div class="search-bar">
+      <input type="text" id="searchBox" placeholder="Search by title, source file, table, or note…">
+    </div>
+    <div id="entryList"></div>
+  </div>
+  <div>
+    <div class="panel">
+      <h2>Tables used across multiple scripts</h2>
+      <div id="fanoutList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ENTRIES = __ENTRIES__;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function scoreClass(v) {
+  return v >= 85 ? 'score-good' : v >= 60 ? 'score-mid' : 'score-bad';
+}
+
+function formatDate(iso) {
+  try { return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
+  catch (e) { return iso; }
+}
+
+function renderEntries(filterText) {
+  const box = document.getElementById('entryList');
+  const q = (filterText || '').trim().toLowerCase();
+  const filtered = ENTRIES.filter(e => {
+    if (!q) return true;
+    const haystack = [e.title, e.source, e.notes, e.author, ...(e.tables || [])].join(' ').toLowerCase();
+    return haystack.includes(q);
+  }).sort((a, b) => (b.added_at || '').localeCompare(a.added_at || ''));
+
+  if (!filtered.length) {
+    box.innerHTML = '<div class="empty-note">No entries match.</div>';
+    return;
+  }
+
+  box.innerHTML = filtered.map(e => `
+    <div class="entry-card">
+      <div>
+        <a class="title-link" href="${escapeHtml(e.slug)}/diagram.html">${escapeHtml(e.title)}</a>
+        <div class="entry-meta">${escapeHtml(e.source || '')} · ${escapeHtml(e.dialect || '')} · ${e.statement_count} statement${e.statement_count === 1 ? '' : 's'} · ${e.author ? escapeHtml(e.author) + ' · ' : ''}${formatDate(e.added_at)}</div>
+        ${e.notes ? `<div class="entry-notes">${escapeHtml(e.notes)}</div>` : ''}
+        <div class="tag-row">
+          <span class="tag">${(e.tables || []).length} tables</span>
+          ${e.duplicate_table_count ? `<span class="tag dup">${e.duplicate_table_count} table(s) referenced &gt;1×</span>` : ''}
+          ${e.duplicate_logic_count ? `<span class="tag dup">${e.duplicate_logic_count} near-duplicate CTE pair(s)</span>` : ''}
+          ${e.temp_object_finding_count ? `<span class="tag dup">${e.temp_object_finding_count} unindexed temp object(s)</span>` : ''}
+        </div>
+      </div>
+      <div class="score-pill ${scoreClass(e.worst_score)}">${e.worst_score}</div>
+    </div>`).join('');
+}
+
+function buildFanout() {
+  const map = {};
+  ENTRIES.forEach(e => {
+    (e.tables || []).forEach(t => {
+      const key = t.toLowerCase();
+      if (!map[key]) map[key] = { label: t, slugs: new Set() };
+      map[key].slugs.add(e.title);
+    });
+  });
+  return Object.values(map)
+    .map(v => ({ label: v.label, count: v.slugs.size, titles: [...v.slugs] }))
+    .filter(v => v.count > 1)
+    .sort((a, b) => b.count - a.count);
+}
+
+function renderFanout() {
+  const box = document.getElementById('fanoutList');
+  const fanout = buildFanout();
+  if (!fanout.length) {
+    box.innerHTML = '<div class="empty-note">No table shows up in more than one analyzed script yet.</div>';
+    return;
+  }
+  box.innerHTML = fanout.slice(0, 30).map(f => `
+    <div class="fanout-row" data-label="${escapeHtml(f.label)}" title="${escapeHtml(f.titles.join(', '))}">
+      <span>${escapeHtml(f.label)}</span>
+      <span class="count">${f.count} scripts</span>
+    </div>`).join('');
+  box.querySelectorAll('.fanout-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const label = row.getAttribute('data-label');
+      document.getElementById('searchBox').value = label;
+      renderEntries(label);
+    });
+  });
+}
+
+document.getElementById('subtitle').textContent = `${ENTRIES.length} analyzed quer${ENTRIES.length === 1 ? 'y' : 'ies'}`;
+document.getElementById('searchBox').addEventListener('input', (ev) => renderEntries(ev.target.value));
+renderEntries('');
+renderFanout();
+</script>
