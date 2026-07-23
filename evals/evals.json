@@ -1,0 +1,26 @@
+{
+  "skill_name": "sql-source-mapper",
+  "evals": [
+    {
+      "id": 1,
+      "name": "exact-duplicate-cte",
+      "prompt": "I've got this T-SQL query for our nightly customer retention report and it feels bloated. Can you map out where the data is coming from and tell me if I'm duplicating anything? We're on Azure SQL.\n\n```sql\nWITH active_customers AS (\n    SELECT c.CustomerID, c.Name, c.Email\n    FROM dbo.Customers c\n    WHERE c.IsActive = 1\n),\nchurn_risk_customers AS (\n    SELECT c.CustomerID, c.Name, c.Email\n    FROM dbo.Customers c\n    WHERE c.IsActive = 1\n),\nrecent_orders AS (\n    SELECT o.OrderID, o.CustomerID, o.Total\n    FROM dbo.Orders o\n    WHERE o.OrderDate > DATEADD(month, -6, GETDATE())\n)\nSELECT ac.Name, ac.Email, ro.Total, cr.CustomerID AS FlaggedChurnID\nFROM active_customers ac\nJOIN recent_orders ro ON ac.CustomerID = ro.CustomerID\nLEFT JOIN churn_risk_customers cr ON cr.CustomerID = ac.CustomerID;\n```",
+      "expected_output": "An interactive diagram (published as an artifact or saved HTML) showing dbo.Customers and dbo.Orders as source tables flowing through active_customers, churn_risk_customers, and recent_orders CTEs into the final result. A table-usage list showing dbo.Customers referenced twice (flagged) and dbo.Orders once. A DRY-duplicates callout identifying active_customers and churn_risk_customers as byte-identical CTE bodies, with a plain-language suggestion to consolidate them into one CTE. A written summary alongside the diagram, not just the visual.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "self-join-no-false-positive",
+      "prompt": "Here's a query I use for an org-chart report showing employees and their managers, plus which are terminated. We're on SQL Server 2022 T-SQL. Can you show me a visual of the data sources and flag anything that looks duplicated so I can tidy it up per our team's DRY guidelines?\n\n```sql\nSELECT e1.EmployeeID, e1.Name, e2.Name AS ManagerName, d.DepartmentName\nFROM dbo.Employees e1\nJOIN dbo.Employees e2 ON e1.ManagerID = e2.EmployeeID\nJOIN dbo.Departments d ON e1.DepartmentID = d.DepartmentID\nWHERE e1.EmployeeID IN (\n    SELECT e.EmployeeID FROM dbo.Employees e WHERE e.Terminated = 0\n);\n```",
+      "expected_output": "A diagram showing dbo.Employees and dbo.Departments as sources, with dbo.Employees flagged as referenced 3 times (self-join e1/e2 plus the IN subquery) and dbo.Departments once. No near-duplicate CTE/subquery logic should be flagged (there's nothing to compare against). The commentary should recognize the self-join as a legitimate, intentional pattern rather than presenting the repeated reference as an outright mistake, while still noting it as something worth a glance.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "near-duplicate-not-identical",
+      "prompt": "We've got a sales dashboard query that's grown over time and I suspect there's copy-paste duplication hurting our DRY principles. Can you generate a source map for it and give me a list of tables plus anything duplicated? This runs on Azure SQL Server 2025.\n\n```sql\nWITH region_sales AS (\n    SELECT s.RegionID, s.OrderID, s.Amount\n    FROM dbo.Sales s\n    JOIN dbo.Orders o ON o.OrderID = s.OrderID\n    WHERE o.Status = 'Completed'\n),\nregion_sales_ytd AS (\n    SELECT s.RegionID, s.OrderID, s.Amount, s.SaleDate\n    FROM dbo.Sales s\n    JOIN dbo.Orders o ON o.OrderID = s.OrderID\n    WHERE o.Status = 'Completed'\n),\ntop_products AS (\n    SELECT p.ProductID, p.Name, SUM(s.Amount) AS TotalAmount\n    FROM dbo.Sales s\n    JOIN dbo.Products p ON p.ProductID = s.ProductID\n    GROUP BY p.ProductID, p.Name\n)\nSELECT rs.RegionID, rs.Amount, tp.Name, tp.TotalAmount\nFROM region_sales rs\nJOIN top_products tp ON 1=1;\n```",
+      "expected_output": "A diagram/table list showing dbo.Sales referenced 3 times (region_sales, region_sales_ytd, top_products) and dbo.Orders referenced twice (region_sales, region_sales_ytd), both flagged. region_sales and region_sales_ytd should be flagged as near-duplicate (high similarity, not 100% since region_sales_ytd adds SaleDate) with a suggestion that region_sales_ytd could extend/reuse region_sales instead of repeating the join logic.",
+      "files": []
+    }
+  ]
+}

@@ -1,0 +1,399 @@
+<title>SQL Source Map</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a2e;
+    --fg-muted: #5b5b70;
+    --panel-bg: #f7f7fb;
+    --panel-bg-2: #eeeef4;
+    --border: #dcdce6;
+    --table-color: #2f6fed;
+    --cte-color: #7c3aed;
+    --subquery-color: #0f9d8c;
+    --output-color: #b45309;
+    --duplicate-color: #dc2626;
+    --duplicate-bg: #fef2f2;
+    --edge-color: #a3a3b8;
+    --edge-color-active: #2f6fed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14141c;
+      --fg: #e8e8f0;
+      --fg-muted: #a0a0b8;
+      --panel-bg: #1b1b26;
+      --panel-bg-2: #23232f;
+      --border: #34344a;
+      --duplicate-bg: #2a1616;
+      --edge-color: #55556b;
+      --edge-color-active: #6ea1ff;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14141c; --fg: #e8e8f0; --fg-muted: #a0a0b8; --panel-bg: #1b1b26;
+    --panel-bg-2: #23232f; --border: #34344a; --duplicate-bg: #2a1616;
+    --edge-color: #55556b; --edge-color-active: #6ea1ff;
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --fg: #1a1a2e; --fg-muted: #5b5b70; --panel-bg: #f7f7fb;
+    --panel-bg-2: #eeeef4; --border: #dcdce6; --duplicate-bg: #fef2f2;
+    --edge-color: #a3a3b8; --edge-color-active: #2f6fed;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  header {
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap; flex-shrink: 0;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header .meta { color: var(--fg-muted); font-size: 12.5px; }
+  .tabs { display: flex; gap: 6px; margin-left: auto; }
+  .tab {
+    padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--panel-bg); cursor: pointer; font-size: 12.5px; color: var(--fg);
+  }
+  .tab.active { background: var(--table-color); color: #fff; border-color: var(--table-color); }
+  .warning-banner {
+    background: var(--duplicate-bg); color: var(--duplicate-color); padding: 8px 20px;
+    font-size: 12.5px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  main { flex: 1; display: flex; overflow: hidden; }
+  .diagram-pane { flex: 1; overflow: auto; position: relative; background:
+    radial-gradient(var(--panel-bg-2) 1px, transparent 1px); background-size: 22px 22px; }
+  svg { display: block; }
+  .node rect { stroke-width: 1.5; cursor: grab; }
+  .node.dragging rect { cursor: grabbing; }
+  .node text { fill: var(--fg); font-size: 12px; pointer-events: none; }
+  .node .sublabel { fill: var(--fg-muted); font-size: 10px; pointer-events: none; }
+  .node.selected rect { stroke-width: 3; }
+  .node.dimmed { opacity: 0.28; }
+  .badge-dup {
+    fill: var(--duplicate-color); stroke: none;
+  }
+  .badge-dup-text { fill: #fff; font-size: 9px; font-weight: 700; pointer-events: none; }
+  .edge { fill: none; stroke: var(--edge-color); stroke-width: 1.6; }
+  .edge.active { stroke: var(--edge-color-active); stroke-width: 2.2; }
+  .sidebar {
+    width: 320px; border-left: 1px solid var(--border); overflow-y: auto;
+    flex-shrink: 0; background: var(--panel-bg);
+  }
+  .panel { border-bottom: 1px solid var(--border); padding: 14px 16px; }
+  .panel h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--fg-muted); margin: 0 0 10px 0; font-weight: 700;
+  }
+  .legend { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+  .legend .item { display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+  table.usage { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.usage td { padding: 5px 4px; border-bottom: 1px solid var(--border); }
+  table.usage tr.dup td { color: var(--duplicate-color); font-weight: 600; }
+  table.usage td.count { text-align: right; color: var(--fg-muted); }
+  .dup-card {
+    background: var(--duplicate-bg); border: 1px solid var(--duplicate-color);
+    border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; font-size: 12px;
+    cursor: pointer;
+  }
+  .dup-card .pct { font-weight: 700; color: var(--duplicate-color); }
+  .empty-note { color: var(--fg-muted); font-size: 12.5px; font-style: italic; }
+  .detail-box {
+    background: var(--panel-bg-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; font-size: 12px;
+  }
+  .detail-box .title { font-weight: 700; margin-bottom: 6px; }
+  .detail-box pre {
+    white-space: pre-wrap; word-break: break-word; margin: 6px 0 0 0;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px;
+    color: var(--fg-muted); max-height: 220px; overflow-y: auto;
+  }
+  .hint { color: var(--fg-muted); font-size: 12px; padding: 2px 0; }
+</style>
+
+<header>
+  <h1 id="title">SQL Source Map</h1>
+  <span class="meta" id="subtitle"></span>
+  <div class="tabs" id="tabs"></div>
+</header>
+<div id="warningBanner" class="warning-banner" style="display:none"></div>
+<main>
+  <div class="diagram-pane" id="diagramPane">
+    <svg id="svg"></svg>
+  </div>
+  <div class="sidebar">
+    <div class="panel">
+      <h2>Legend</h2>
+      <div class="legend">
+        <div class="item"><span class="swatch" style="background:var(--table-color)"></span>Base table</div>
+        <div class="item"><span class="swatch" style="background:var(--cte-color)"></span>CTE</div>
+        <div class="item"><span class="swatch" style="background:var(--subquery-color)"></span>Derived subquery</div>
+        <div class="item"><span class="swatch" style="background:var(--output-color)"></span>Result</div>
+        <div class="item"><span class="swatch" style="background:var(--duplicate-color)"></span>Referenced more than once</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Tables used</h2>
+      <div id="tableUsage"></div>
+    </div>
+    <div class="panel">
+      <h2>Possible DRY duplicates</h2>
+      <div id="dupLogic"></div>
+    </div>
+    <div class="panel" id="selectionPanel" style="display:none">
+      <h2>Selected</h2>
+      <div id="selectionDetail"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const DATA = __DATA__;
+
+const COLORS = { table: 'var(--table-color)', cte: 'var(--cte-color)', subquery: 'var(--subquery-color)', output: 'var(--output-color)' };
+const COL_WIDTH = 240;
+const ROW_HEIGHT = 84;
+const NODE_W = 180;
+const NODE_H = 52;
+const MARGIN = 50;
+
+let currentStatement = 0;
+let positions = {};
+let selectedId = null;
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+function shortLabel(label, max) {
+  max = max || 22;
+  return label.length > max ? label.slice(0, max - 1) + '…' : label;
+}
+
+function computeLayout(nodes) {
+  const layers = {};
+  nodes.forEach(n => { (layers[n.layer] = layers[n.layer] || []).push(n); });
+  const layerKeys = Object.keys(layers).map(Number).sort((a, b) => a - b);
+  const pos = {};
+  let maxRows = 1;
+  layerKeys.forEach((layer, colIdx) => {
+    const inLayer = layers[layer];
+    maxRows = Math.max(maxRows, inLayer.length);
+    inLayer.forEach((n, rowIdx) => {
+      pos[n.id] = {
+        x: MARGIN + colIdx * COL_WIDTH,
+        y: MARGIN + rowIdx * ROW_HEIGHT + (rowIdx * 0),
+      };
+    });
+  });
+  return { pos, width: MARGIN * 2 + (layerKeys.length - 1) * COL_WIDTH + NODE_W, height: MARGIN * 2 + maxRows * ROW_HEIGHT };
+}
+
+function nodeCenter(id) {
+  const p = positions[id];
+  return { cx: p.x + NODE_W / 2, cy: p.y + NODE_H / 2 };
+}
+
+function edgePath(sourceId, targetId) {
+  const s = positions[sourceId], t = positions[targetId];
+  const sx = s.x + NODE_W, sy = s.y + NODE_H / 2;
+  const tx = t.x, ty = t.y + NODE_H / 2;
+  const dx = Math.max(40, (tx - sx) / 2);
+  return `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+}
+
+function render() {
+  const stmt = DATA.statements[currentStatement];
+  const svg = document.getElementById('svg');
+  svg.innerHTML = '';
+  selectedId = null;
+  document.getElementById('selectionPanel').style.display = 'none';
+
+  const { pos, width, height } = computeLayout(stmt.nodes);
+  positions = pos;
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+  const dupTableSet = new Set(stmt.table_usage.filter(t => t.duplicate).map(t => t.table.toLowerCase()));
+  const dupNodeIds = new Set();
+  stmt.duplicate_logic.forEach(d => { dupNodeIds.add(d.a); dupNodeIds.add(d.b); });
+
+  const edgeLayer = el('g', {}, svg);
+  const edgeEls = {};
+  stmt.edges.forEach(e => {
+    const path = el('path', { class: 'edge', d: edgePath(e.source, e.target) }, edgeLayer);
+    (edgeEls[e.source] = edgeEls[e.source] || []).push(path);
+    (edgeEls[e.target] = edgeEls[e.target] || []).push(path);
+  });
+
+  const nodeLayer = el('g', {}, svg);
+  const nodeEls = {};
+  stmt.nodes.forEach(n => {
+    const p = positions[n.id];
+    const g = el('g', { class: 'node', transform: `translate(${p.x},${p.y})`, 'data-id': n.id }, nodeLayer);
+    nodeEls[n.id] = g;
+    const isDupTable = n.type === 'table' && dupTableSet.has(n.label.toLowerCase());
+    const isDupLogic = dupNodeIds.has(n.id);
+    const stroke = (isDupTable || isDupLogic) ? 'var(--duplicate-color)' : COLORS[n.type];
+    el('rect', { width: NODE_W, height: NODE_H, rx: 9, fill: 'var(--panel-bg)', stroke: stroke }, g);
+    el('rect', { x: 0, y: 0, width: 5, height: NODE_H, rx: 2, fill: COLORS[n.type] }, g);
+    const text = el('text', { x: 14, y: 21 }, g);
+    text.textContent = shortLabel(n.label, 24);
+    const sub = el('text', { class: 'sublabel', x: 14, y: 37 }, g);
+    sub.textContent = n.type === 'table' ? 'base table' : n.type;
+    if (isDupTable || isDupLogic) {
+      el('circle', { class: 'badge-dup', cx: NODE_W - 10, cy: 10, r: 8 }, g);
+      const bt = el('text', { class: 'badge-dup-text', x: NODE_W - 10, y: 13, 'text-anchor': 'middle' }, g);
+      bt.textContent = '!';
+    }
+    g.addEventListener('click', (ev) => { ev.stopPropagation(); selectNode(n, stmt, edgeEls, nodeEls); });
+    makeDraggable(g, n.id, edgeEls);
+  });
+
+  svg.addEventListener('click', () => clearSelection(nodeEls, edgeEls));
+
+  renderTableUsage(stmt);
+  renderDupLogic(stmt, nodeEls, edgeEls);
+}
+
+function makeDraggable(g, id, edgeEls) {
+  let dragging = false, offX = 0, offY = 0;
+  g.addEventListener('mousedown', (ev) => {
+    dragging = true;
+    g.classList.add('dragging');
+    const p = positions[id];
+    offX = ev.clientX - p.x;
+    offY = ev.clientY - p.y;
+    ev.stopPropagation();
+  });
+  window.addEventListener('mousemove', (ev) => {
+    if (!dragging) return;
+    positions[id] = { x: ev.clientX - offX, y: ev.clientY - offY };
+    g.setAttribute('transform', `translate(${positions[id].x},${positions[id].y})`);
+    refreshAllEdges();
+  });
+  window.addEventListener('mouseup', () => { dragging = false; g.classList.remove('dragging'); });
+}
+
+function refreshAllEdges() {
+  const stmt = DATA.statements[currentStatement];
+  const paths = document.querySelectorAll('#svg .edge');
+  stmt.edges.forEach((e, i) => {
+    if (paths[i]) paths[i].setAttribute('d', edgePath(e.source, e.target));
+  });
+}
+
+function selectNode(n, stmt, edgeEls, nodeEls) {
+  selectedId = n.id;
+  Object.entries(nodeEls).forEach(([id, g]) => {
+    g.classList.toggle('selected', id === n.id);
+    g.classList.toggle('dimmed', id !== n.id && !isNeighbor(id, n.id, stmt));
+  });
+  document.querySelectorAll('#svg .edge').forEach((p, i) => {
+    const e = stmt.edges[i];
+    const active = e.source === n.id || e.target === n.id;
+    p.classList.toggle('active', active);
+  });
+  showDetail(n, stmt);
+}
+
+function isNeighbor(id, selId, stmt) {
+  return stmt.edges.some(e => (e.source === selId && e.target === id) || (e.target === selId && e.source === id));
+}
+
+function clearSelection(nodeEls, edgeEls) {
+  selectedId = null;
+  Object.values(nodeEls).forEach(g => { g.classList.remove('selected'); g.classList.remove('dimmed'); });
+  document.querySelectorAll('#svg .edge').forEach(p => p.classList.remove('active'));
+  document.getElementById('selectionPanel').style.display = 'none';
+}
+
+function showDetail(n, stmt) {
+  const panel = document.getElementById('selectionPanel');
+  const box = document.getElementById('selectionDetail');
+  panel.style.display = 'block';
+  let html = `<div class="detail-box"><div class="title">${escapeHtml(n.label)}</div>`;
+  html += `<div class="hint">Type: ${n.type}</div>`;
+  if (n.sql) html += `<pre>${escapeHtml(n.sql)}</pre>`;
+  html += `</div>`;
+  box.innerHTML = html;
+}
+
+function renderTableUsage(stmt) {
+  const box = document.getElementById('tableUsage');
+  if (!stmt.table_usage.length) { box.innerHTML = '<div class="empty-note">No base tables detected.</div>'; return; }
+  let html = '<table class="usage">';
+  stmt.table_usage.forEach(t => {
+    html += `<tr class="${t.duplicate ? 'dup' : ''}"><td>${escapeHtml(t.table)}</td><td class="count">${t.count}×</td></tr>`;
+  });
+  html += '</table>';
+  box.innerHTML = html;
+}
+
+function renderDupLogic(stmt, nodeEls, edgeEls) {
+  const box = document.getElementById('dupLogic');
+  if (!stmt.duplicate_logic.length) { box.innerHTML = '<div class="empty-note">No near-duplicate CTE/subquery bodies found.</div>'; return; }
+  let html = '';
+  stmt.duplicate_logic.forEach(d => {
+    const pct = Math.round(d.similarity * 100);
+    html += `<div class="dup-card" data-a="${d.a}" data-b="${d.b}">`;
+    html += `<span class="pct">${pct}% match</span>${d.exact ? ' — identical' : ''}<br>`;
+    html += `${escapeHtml(shortLabel(d.a.split(':').pop(), 20))} ↔ ${escapeHtml(shortLabel(d.b.split(':').pop(), 20))}`;
+    html += `</div>`;
+  });
+  box.innerHTML = html;
+  box.querySelectorAll('.dup-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const a = card.getAttribute('data-a'), b = card.getAttribute('data-b');
+      const nodeEls2 = {};
+      document.querySelectorAll('#svg .node').forEach(g => nodeEls2[g.getAttribute('data-id')] = g);
+      Object.entries(nodeEls2).forEach(([id, g]) => {
+        g.classList.toggle('selected', id === a || id === b);
+        g.classList.toggle('dimmed', id !== a && id !== b);
+      });
+      document.querySelectorAll('#svg .edge').forEach(p => p.classList.remove('active'));
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function buildHeader() {
+  document.getElementById('title').textContent = DATA.source || 'SQL Source Map';
+  const parts = [`dialect: ${DATA.dialect}`, `${DATA.statement_count} statement${DATA.statement_count === 1 ? '' : 's'}`];
+  document.getElementById('subtitle').textContent = parts.join('  ·  ');
+
+  const tabsEl = document.getElementById('tabs');
+  if (DATA.statements.length > 1) {
+    DATA.statements.forEach((s, i) => {
+      const b = document.createElement('div');
+      b.className = 'tab' + (i === currentStatement ? ' active' : '');
+      b.textContent = `Statement ${s.index}`;
+      b.addEventListener('click', () => {
+        currentStatement = i;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        b.classList.add('active');
+        render();
+      });
+      tabsEl.appendChild(b);
+    });
+  }
+
+  if (DATA.warnings && DATA.warnings.length) {
+    const banner = document.getElementById('warningBanner');
+    banner.style.display = 'block';
+    banner.textContent = '⚠ ' + DATA.warnings.join(' — ');
+  }
+}
+
+buildHeader();
+render();
+</script>
