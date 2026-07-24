@@ -1,0 +1,148 @@
+{
+  "source": "healthcare-scheduling.sql",
+  "dialect": "tsql",
+  "statement_count": 1,
+  "warnings": [],
+  "statements": [
+    {
+      "index": 1,
+      "nodes": [
+        {
+          "id": "output",
+          "type": "output",
+          "label": "Result",
+          "layer": 1
+        },
+        {
+          "id": "table:clinic.appointments",
+          "type": "table",
+          "label": "clinic.Appointments",
+          "layer": 0,
+          "columns": [
+            "AppointmentDate",
+            "AppointmentID",
+            "EndTime",
+            "Notes",
+            "PatientID",
+            "ProviderID",
+            "StartTime",
+            "Status"
+          ]
+        },
+        {
+          "id": "table:clinic.patients",
+          "type": "table",
+          "label": "clinic.Patients",
+          "layer": 0,
+          "columns": [
+            "DateOfBirth",
+            "PatientID",
+            "PatientName"
+          ]
+        },
+        {
+          "id": "table:clinic.providers",
+          "type": "table",
+          "label": "clinic.Providers",
+          "layer": 0,
+          "columns": [
+            "DepartmentID",
+            "IsActive",
+            "ProviderID",
+            "ProviderName",
+            "SupervisorID"
+          ]
+        },
+        {
+          "id": "table:clinic.departments",
+          "type": "table",
+          "label": "clinic.Departments",
+          "layer": 0,
+          "columns": [
+            "DepartmentID",
+            "DepartmentName"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "source": "table:clinic.appointments",
+          "target": "output"
+        },
+        {
+          "source": "table:clinic.patients",
+          "target": "output"
+        },
+        {
+          "source": "table:clinic.providers",
+          "target": "output"
+        },
+        {
+          "source": "table:clinic.departments",
+          "target": "output"
+        }
+      ],
+      "table_usage": [
+        {
+          "table": "clinic.Providers",
+          "count": 2,
+          "duplicate": true
+        },
+        {
+          "table": "clinic.Appointments",
+          "count": 1,
+          "duplicate": false
+        },
+        {
+          "table": "clinic.Departments",
+          "count": 1,
+          "duplicate": false
+        },
+        {
+          "table": "clinic.Patients",
+          "count": 1,
+          "duplicate": false
+        }
+      ],
+      "duplicate_logic": [],
+      "duplicate_logic_total": 0,
+      "sargability_findings": [],
+      "temp_object_findings": [],
+      "score": {
+        "value": 97,
+        "breakdown": [
+          {
+            "factor": "Table referenced more than once",
+            "impact": -3,
+            "detail": "clinic.Providers referenced 2\u00d7 (could be a self-join - worth a glance, not automatically wrong)"
+          }
+        ]
+      }
+    }
+  ],
+  "overall_table_usage": [
+    {
+      "table": "clinic.Providers",
+      "count": 2,
+      "duplicate": true
+    },
+    {
+      "table": "clinic.Appointments",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "clinic.Departments",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "clinic.Patients",
+      "count": 1,
+      "duplicate": false
+    }
+  ],
+  "cross_statement_duplicate_logic": [],
+  "cross_statement_duplicate_logic_total": 0,
+  "temp_object_findings": []
+}

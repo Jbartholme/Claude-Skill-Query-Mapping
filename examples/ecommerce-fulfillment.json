@@ -1,0 +1,176 @@
+{
+  "source": "ecommerce-fulfillment.sql",
+  "dialect": "tsql",
+  "statement_count": 1,
+  "warnings": [],
+  "statements": [
+    {
+      "index": 1,
+      "nodes": [
+        {
+          "id": "output",
+          "type": "output",
+          "label": "Result",
+          "layer": 2
+        },
+        {
+          "id": "cte:InventoryByWarehouse",
+          "type": "cte",
+          "label": "InventoryByWarehouse",
+          "sql": "select i.warehouseid, i.productid, w.warehousename, w.region, i.quantityonhand, i.quantityreserved, i.quantityonhand - i.quantityreserved as availablequantity from ecom.inventory as i inner join ecom.warehouses as w on i.warehouseid = w.warehouseid where i.quantityonhand > 0",
+          "layer": 1,
+          "columns": [
+            "AvailableQuantity",
+            "ProductId",
+            "Region",
+            "WarehouseId",
+            "WarehouseName"
+          ]
+        },
+        {
+          "id": "cte:PendingShipments",
+          "type": "cte",
+          "label": "PendingShipments",
+          "sql": "select s.shipmentid, s.productid, s.warehouseid, s.requestedquantity, s.shipmentstatus, p.productname, p.unitprice from ecom.shipments as s inner join ecom.products as p on s.productid = p.productid where s.shipmentstatus in ('pending', 'processing')",
+          "layer": 1,
+          "columns": [
+            "ProductId",
+            "ProductName",
+            "RequestedQuantity",
+            "ShipmentId",
+            "UnitPrice",
+            "WarehouseId"
+          ]
+        },
+        {
+          "id": "table:ecom.inventory",
+          "type": "table",
+          "label": "ecom.Inventory",
+          "layer": 0,
+          "columns": [
+            "ProductId",
+            "QuantityOnHand",
+            "QuantityReserved",
+            "WarehouseId"
+          ]
+        },
+        {
+          "id": "table:ecom.warehouses",
+          "type": "table",
+          "label": "ecom.Warehouses",
+          "layer": 0,
+          "columns": [
+            "Region",
+            "WarehouseId",
+            "WarehouseName"
+          ]
+        },
+        {
+          "id": "table:ecom.shipments",
+          "type": "table",
+          "label": "ecom.Shipments",
+          "layer": 0,
+          "columns": [
+            "ProductId",
+            "RequestedQuantity",
+            "ShipmentId",
+            "ShipmentStatus",
+            "WarehouseId"
+          ]
+        },
+        {
+          "id": "table:ecom.products",
+          "type": "table",
+          "label": "ecom.Products",
+          "layer": 0,
+          "columns": [
+            "ProductId",
+            "ProductName",
+            "UnitPrice"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "source": "table:ecom.inventory",
+          "target": "cte:InventoryByWarehouse"
+        },
+        {
+          "source": "table:ecom.warehouses",
+          "target": "cte:InventoryByWarehouse"
+        },
+        {
+          "source": "table:ecom.shipments",
+          "target": "cte:PendingShipments"
+        },
+        {
+          "source": "table:ecom.products",
+          "target": "cte:PendingShipments"
+        },
+        {
+          "source": "cte:PendingShipments",
+          "target": "output"
+        },
+        {
+          "source": "cte:InventoryByWarehouse",
+          "target": "output"
+        }
+      ],
+      "table_usage": [
+        {
+          "table": "ecom.Inventory",
+          "count": 1,
+          "duplicate": false
+        },
+        {
+          "table": "ecom.Products",
+          "count": 1,
+          "duplicate": false
+        },
+        {
+          "table": "ecom.Shipments",
+          "count": 1,
+          "duplicate": false
+        },
+        {
+          "table": "ecom.Warehouses",
+          "count": 1,
+          "duplicate": false
+        }
+      ],
+      "duplicate_logic": [],
+      "duplicate_logic_total": 0,
+      "sargability_findings": [],
+      "temp_object_findings": [],
+      "score": {
+        "value": 100,
+        "breakdown": []
+      }
+    }
+  ],
+  "overall_table_usage": [
+    {
+      "table": "ecom.Inventory",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "ecom.Products",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "ecom.Shipments",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "ecom.Warehouses",
+      "count": 1,
+      "duplicate": false
+    }
+  ],
+  "cross_statement_duplicate_logic": [],
+  "cross_statement_duplicate_logic_total": 0,
+  "temp_object_findings": []
+}

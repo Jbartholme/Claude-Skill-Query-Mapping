@@ -1,0 +1,113 @@
+{
+  "source": "manufacturing-hierarchy.sql",
+  "dialect": "tsql",
+  "statement_count": 1,
+  "warnings": [],
+  "statements": [
+    {
+      "index": 1,
+      "nodes": [
+        {
+          "id": "output",
+          "type": "output",
+          "label": "Result",
+          "layer": 2
+        },
+        {
+          "id": "cte:EquipmentHierarchy",
+          "type": "cte",
+          "label": "EquipmentHierarchy",
+          "sql": "/* anchor member: top-level equipment (no parent) */ select equipmentid, parentequipmentid, name, 0 as hierarchylevel from mfg.equipment where parentequipmentid is null union all /* recursive member: child equipment (sub-assemblies) */ select e.equipmentid, e.parentequipmentid, e.name, h.hierarchylevel + 1 from mfg.equipment as e inner join equipmenthierarchy as h on e.parentequipmentid = h.equipmentid where not e.parentequipmentid is null",
+          "layer": 1,
+          "columns": [
+            "EquipmentID",
+            "HierarchyLevel",
+            "Name"
+          ]
+        },
+        {
+          "id": "table:mfg.equipment",
+          "type": "table",
+          "label": "mfg.Equipment",
+          "layer": 0,
+          "columns": [
+            "EquipmentID",
+            "Name",
+            "ParentEquipmentID"
+          ]
+        },
+        {
+          "id": "table:mfg.maintenancelog",
+          "type": "table",
+          "label": "mfg.MaintenanceLog",
+          "layer": 0,
+          "columns": [
+            "EquipmentID",
+            "LogID",
+            "Notes",
+            "ServiceDate"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "source": "table:mfg.equipment",
+          "target": "cte:EquipmentHierarchy"
+        },
+        {
+          "source": "cte:EquipmentHierarchy",
+          "target": "cte:EquipmentHierarchy"
+        },
+        {
+          "source": "cte:EquipmentHierarchy",
+          "target": "output"
+        },
+        {
+          "source": "table:mfg.maintenancelog",
+          "target": "output"
+        }
+      ],
+      "table_usage": [
+        {
+          "table": "mfg.Equipment",
+          "count": 2,
+          "duplicate": true
+        },
+        {
+          "table": "mfg.MaintenanceLog",
+          "count": 1,
+          "duplicate": false
+        }
+      ],
+      "duplicate_logic": [],
+      "duplicate_logic_total": 0,
+      "sargability_findings": [],
+      "temp_object_findings": [],
+      "score": {
+        "value": 97,
+        "breakdown": [
+          {
+            "factor": "Table referenced more than once",
+            "impact": -3,
+            "detail": "mfg.Equipment referenced 2\u00d7 (could be a self-join - worth a glance, not automatically wrong)"
+          }
+        ]
+      }
+    }
+  ],
+  "overall_table_usage": [
+    {
+      "table": "mfg.Equipment",
+      "count": 2,
+      "duplicate": true
+    },
+    {
+      "table": "mfg.MaintenanceLog",
+      "count": 1,
+      "duplicate": false
+    }
+  ],
+  "cross_statement_duplicate_logic": [],
+  "cross_statement_duplicate_logic_total": 0,
+  "temp_object_findings": []
+}

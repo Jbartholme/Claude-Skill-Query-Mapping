@@ -1,0 +1,155 @@
+{
+  "source": "fraud-detection.sql",
+  "dialect": "tsql",
+  "statement_count": 1,
+  "warnings": [],
+  "statements": [
+    {
+      "index": 1,
+      "nodes": [
+        {
+          "id": "output",
+          "type": "output",
+          "label": "Result",
+          "select_star": true,
+          "layer": 1
+        },
+        {
+          "id": "table:fin.transactions",
+          "type": "table",
+          "label": "fin.Transactions",
+          "layer": 0,
+          "columns": [
+            "AccountID",
+            "Amount",
+            "Description",
+            "TransactionDate",
+            "TransactionID"
+          ]
+        },
+        {
+          "id": "table:fin.accounts",
+          "type": "table",
+          "label": "fin.Accounts",
+          "layer": 0,
+          "columns": [
+            "AccountID",
+            "AccountStatus",
+            "RiskScore"
+          ]
+        },
+        {
+          "id": "table:fin.fraudflags",
+          "type": "table",
+          "label": "fin.FraudFlags",
+          "layer": 0,
+          "columns": [
+            "FlagID"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "source": "table:fin.transactions",
+          "target": "output"
+        },
+        {
+          "source": "table:fin.accounts",
+          "target": "output"
+        },
+        {
+          "source": "table:fin.fraudflags",
+          "target": "output"
+        }
+      ],
+      "table_usage": [
+        {
+          "table": "fin.Accounts",
+          "count": 1,
+          "duplicate": false
+        },
+        {
+          "table": "fin.FraudFlags",
+          "count": 1,
+          "duplicate": false
+        },
+        {
+          "table": "fin.Transactions",
+          "count": 1,
+          "duplicate": false
+        }
+      ],
+      "duplicate_logic": [],
+      "duplicate_logic_total": 0,
+      "sargability_findings": [
+        {
+          "type": "non_sargable_predicate",
+          "detail": "Filter wraps a column in UPPER, which usually blocks index use: UPPER(a.AccountStatus)"
+        },
+        {
+          "type": "non_sargable_predicate",
+          "detail": "Filter wraps a column in YEAR, which usually blocks index use: YEAR(t.TransactionDate)"
+        },
+        {
+          "type": "cartesian_join",
+          "detail": "Join condition doesn't reference any columns (e.g. ON 1=1) - a disguised cartesian product: INNER JOIN fin.FraudFlags AS f ON 1 = 1"
+        },
+        {
+          "type": "leading_wildcard_like",
+          "detail": "Leading-wildcard LIKE can't seek an index, forces a scan: t.Description LIKE '%suspicious%'"
+        }
+      ],
+      "temp_object_findings": [],
+      "score": {
+        "value": 65,
+        "breakdown": [
+          {
+            "factor": "Cartesian join",
+            "impact": -12,
+            "detail": "Join condition doesn't reference any columns (e.g. ON 1=1) - a disguised cartesian product: INNER JOIN fin.FraudFlags AS f ON 1 = 1"
+          },
+          {
+            "factor": "Non sargable predicate",
+            "impact": -8,
+            "detail": "Filter wraps a column in UPPER, which usually blocks index use: UPPER(a.AccountStatus)"
+          },
+          {
+            "factor": "Non sargable predicate",
+            "impact": -8,
+            "detail": "Filter wraps a column in YEAR, which usually blocks index use: YEAR(t.TransactionDate)"
+          },
+          {
+            "factor": "Leading wildcard like",
+            "impact": -5,
+            "detail": "Leading-wildcard LIKE can't seek an index, forces a scan: t.Description LIKE '%suspicious%'"
+          },
+          {
+            "factor": "SELECT * used",
+            "impact": -2,
+            "detail": "1 SELECT * in this statement - pulls unneeded columns and hides what's actually used downstream"
+          }
+        ]
+      }
+    }
+  ],
+  "overall_table_usage": [
+    {
+      "table": "fin.Accounts",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "fin.FraudFlags",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "fin.Transactions",
+      "count": 1,
+      "duplicate": false
+    }
+  ],
+  "cross_statement_duplicate_logic": [],
+  "cross_statement_duplicate_logic_total": 0,
+  "temp_object_findings": []
+}

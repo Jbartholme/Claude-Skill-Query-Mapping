@@ -1,0 +1,228 @@
+{
+  "source": "etl-staging-pipeline.sql",
+  "dialect": "tsql",
+  "statement_count": 3,
+  "warnings": [],
+  "statements": [
+    {
+      "index": 1,
+      "nodes": [
+        {
+          "id": "output",
+          "type": "output",
+          "label": "Result",
+          "layer": 1
+        },
+        {
+          "id": "table:stage.rawevents",
+          "type": "table",
+          "label": "stage.RawEvents",
+          "layer": 0,
+          "columns": [
+            "EventCode",
+            "EventData",
+            "EventId",
+            "EventTimestamp",
+            "LoadedDate",
+            "SourceSystem"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "source": "table:stage.rawevents",
+          "target": "output"
+        }
+      ],
+      "table_usage": [
+        {
+          "table": "stage.RawEvents",
+          "count": 1,
+          "duplicate": false
+        }
+      ],
+      "duplicate_logic": [],
+      "duplicate_logic_total": 0,
+      "sargability_findings": [],
+      "temp_object_findings": [],
+      "score": {
+        "value": 100,
+        "breakdown": []
+      }
+    },
+    {
+      "index": 2,
+      "nodes": [
+        {
+          "id": "output",
+          "type": "output",
+          "label": "Result",
+          "layer": 1
+        },
+        {
+          "id": "table:dbo.eventcodes",
+          "type": "table",
+          "label": "dbo.EventCodes",
+          "layer": 0,
+          "columns": [
+            "Code",
+            "Description",
+            "IsActive"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "source": "table:dbo.eventcodes",
+          "target": "output"
+        }
+      ],
+      "table_usage": [
+        {
+          "table": "dbo.EventCodes",
+          "count": 1,
+          "duplicate": false
+        }
+      ],
+      "duplicate_logic": [],
+      "duplicate_logic_total": 0,
+      "sargability_findings": [],
+      "temp_object_findings": [],
+      "score": {
+        "value": 100,
+        "breakdown": []
+      }
+    },
+    {
+      "index": 3,
+      "nodes": [
+        {
+          "id": "output",
+          "type": "output",
+          "label": "Result",
+          "layer": 1
+        },
+        {
+          "id": "table:#stagedevents",
+          "type": "table",
+          "label": "#StagedEvents",
+          "layer": 0,
+          "columns": [
+            "EventCode",
+            "EventData",
+            "EventId",
+            "EventTimestamp",
+            "LoadedDate",
+            "SourceSystem"
+          ]
+        },
+        {
+          "id": "table:@lookupcodes",
+          "type": "table",
+          "label": "@LookupCodes",
+          "layer": 0,
+          "columns": [
+            "Code",
+            "Description"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "source": "table:#stagedevents",
+          "target": "output"
+        },
+        {
+          "source": "table:@lookupcodes",
+          "target": "output"
+        }
+      ],
+      "table_usage": [
+        {
+          "table": "#StagedEvents",
+          "count": 1,
+          "duplicate": false
+        },
+        {
+          "table": "@LookupCodes",
+          "count": 1,
+          "duplicate": false
+        }
+      ],
+      "duplicate_logic": [],
+      "duplicate_logic_total": 0,
+      "sargability_findings": [],
+      "temp_object_findings": [
+        {
+          "object": "#StagedEvents",
+          "created_via": "SELECT ... INTO",
+          "has_index": false,
+          "joined_times": 1,
+          "note": "Referenced in a JOIN but never indexed - if it holds more than a handful of rows, this forces a scan every time it's joined."
+        },
+        {
+          "object": "@LookupCodes",
+          "created_via": "table variable (DECLARE ... TABLE)",
+          "has_index": false,
+          "joined_times": 1,
+          "note": "Table variables can't easily be indexed after creation (and pre-2014 SQL Server statistics on them are unreliable) - if this holds many rows, a #temp table with an explicit index is usually faster."
+        }
+      ],
+      "score": {
+        "value": 80,
+        "breakdown": [
+          {
+            "factor": "Unindexed temp object used in a join",
+            "impact": -10,
+            "detail": "#StagedEvents (SELECT ... INTO): Referenced in a JOIN but never indexed - if it holds more than a handful of rows, this forces a scan every time it's joined."
+          },
+          {
+            "factor": "Unindexed temp object used in a join",
+            "impact": -10,
+            "detail": "@LookupCodes (table variable (DECLARE ... TABLE)): Table variables can't easily be indexed after creation (and pre-2014 SQL Server statistics on them are unreliable) - if this holds many rows, a #temp table with an explicit index is usually faster."
+          }
+        ]
+      }
+    }
+  ],
+  "overall_table_usage": [
+    {
+      "table": "#StagedEvents",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "@LookupCodes",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "dbo.EventCodes",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "stage.RawEvents",
+      "count": 1,
+      "duplicate": false
+    }
+  ],
+  "cross_statement_duplicate_logic": [],
+  "cross_statement_duplicate_logic_total": 0,
+  "temp_object_findings": [
+    {
+      "object": "#StagedEvents",
+      "created_via": "SELECT ... INTO",
+      "has_index": false,
+      "joined_times": 1,
+      "note": "Referenced in a JOIN but never indexed - if it holds more than a handful of rows, this forces a scan every time it's joined."
+    },
+    {
+      "object": "@LookupCodes",
+      "created_via": "table variable (DECLARE ... TABLE)",
+      "has_index": false,
+      "joined_times": 1,
+      "note": "Table variables can't easily be indexed after creation (and pre-2014 SQL Server statistics on them are unreliable) - if this holds many rows, a #temp table with an explicit index is usually faster."
+    }
+  ]
+}
