@@ -64,13 +64,17 @@ def get_arg(expr: exp.Expression, name: str):
 
 
 def table_label(table: exp.Table, dialect: str = "tsql") -> str:
-    """A temp table (#x, ##x, @x) needs dialect-aware rendering to keep its
-    sigil - table.name alone strips it. Render just the identifier, not
-    table.sql() directly, which would also drag in any alias ("AS ac")."""
-    if temp_key(table):
-        return table.this.sql(dialect=dialect)
-    parts = [p for p in [table.catalog, table.db, table.name] if p]
-    return ".".join(parts)
+    """Render the table's full identifier - catalog/db/schema/name, or a temp
+    sigil (#x, ##x, @x) - without its alias. Reconstructing this manually
+    from table.catalog/table.db/table.name silently drops the schema on a
+    4-part linked-server reference (LinkedServer.Database.dbo.Table), because
+    sqlglot nests "dbo.Table" as a single Dot expression under .this rather
+    than exposing dbo as its own property. Cloning and stripping the alias
+    then asking sqlglot to render it sidesteps that - it already knows how to
+    print its own structure correctly, including cross-database references."""
+    clone = table.copy()
+    clone.set("alias", None)
+    return clone.sql(dialect=dialect)
 
 
 def temp_key(table: exp.Table):

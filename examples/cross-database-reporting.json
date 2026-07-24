@@ -1,0 +1,180 @@
+{
+  "source": "cross-database-reporting.sql",
+  "dialect": "tsql",
+  "statement_count": 1,
+  "warnings": [],
+  "statements": [
+    {
+      "index": 1,
+      "nodes": [
+        {
+          "id": "output",
+          "type": "output",
+          "label": "Result",
+          "layer": 2
+        },
+        {
+          "id": "cte:active_headcount",
+          "type": "cte",
+          "label": "active_headcount",
+          "sql": "select e.employeeid, e.name, e.departmentid from hr_db.dbo.employees as e where e.terminated = 0",
+          "layer": 1,
+          "columns": [
+            "DepartmentID",
+            "EmployeeID",
+            "Name"
+          ]
+        },
+        {
+          "id": "cte:current_salaries",
+          "type": "cte",
+          "label": "current_salaries",
+          "sql": "select s.employeeid, s.annualsalary, s.effectivedate from payroll_db.dbo.salaries as s where s.effectivedate = (select max(s2.effectivedate) from payroll_db.dbo.salaries as s2 where s2.employeeid = s.employeeid)",
+          "layer": 1,
+          "columns": [
+            "AnnualSalary",
+            "EmployeeID"
+          ]
+        },
+        {
+          "id": "cte:benefit_enrollment",
+          "type": "cte",
+          "label": "benefit_enrollment",
+          "sql": "select b.employeeid, b.planname, b.monthlypremium from benefits_db.enroll.enrollments as b where b.status = 'active'",
+          "layer": 1,
+          "columns": [
+            "EmployeeID",
+            "MonthlyPremium",
+            "PlanName"
+          ]
+        },
+        {
+          "id": "table:hr_db.dbo.employees",
+          "type": "table",
+          "label": "HR_DB.dbo.Employees",
+          "layer": 0,
+          "columns": [
+            "DepartmentID",
+            "EmployeeID",
+            "Name",
+            "Terminated"
+          ]
+        },
+        {
+          "id": "table:payroll_db.dbo.salaries",
+          "type": "table",
+          "label": "Payroll_DB.dbo.Salaries",
+          "layer": 0,
+          "columns": [
+            "AnnualSalary",
+            "EffectiveDate",
+            "EmployeeID"
+          ]
+        },
+        {
+          "id": "table:benefits_db.enroll.enrollments",
+          "type": "table",
+          "label": "Benefits_DB.enroll.Enrollments",
+          "layer": 0,
+          "columns": [
+            "EmployeeID",
+            "MonthlyPremium",
+            "PlanName",
+            "Status"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "source": "table:hr_db.dbo.employees",
+          "target": "cte:active_headcount"
+        },
+        {
+          "source": "table:payroll_db.dbo.salaries",
+          "target": "cte:current_salaries"
+        },
+        {
+          "source": "table:benefits_db.enroll.enrollments",
+          "target": "cte:benefit_enrollment"
+        },
+        {
+          "source": "cte:active_headcount",
+          "target": "output"
+        },
+        {
+          "source": "cte:current_salaries",
+          "target": "output"
+        },
+        {
+          "source": "cte:benefit_enrollment",
+          "target": "output"
+        },
+        {
+          "source": "table:hr_db.dbo.employees",
+          "target": "output"
+        }
+      ],
+      "table_usage": [
+        {
+          "table": "HR_DB.dbo.Employees",
+          "count": 2,
+          "duplicate": true
+        },
+        {
+          "table": "Benefits_DB.enroll.Enrollments",
+          "count": 1,
+          "duplicate": false
+        },
+        {
+          "table": "Payroll_DB.dbo.Salaries",
+          "count": 1,
+          "duplicate": false
+        }
+      ],
+      "duplicate_logic": [],
+      "duplicate_logic_total": 0,
+      "sargability_findings": [
+        {
+          "type": "non_sargable_predicate",
+          "detail": "Filter wraps a column in MAX, which usually blocks index use: MAX(s2.EffectiveDate)"
+        }
+      ],
+      "temp_object_findings": [],
+      "score": {
+        "value": 89,
+        "breakdown": [
+          {
+            "factor": "Non sargable predicate",
+            "impact": -8,
+            "detail": "Filter wraps a column in MAX, which usually blocks index use: MAX(s2.EffectiveDate)"
+          },
+          {
+            "factor": "Table referenced more than once",
+            "impact": -3,
+            "detail": "HR_DB.dbo.Employees referenced 2\u00d7 (could be a self-join - worth a glance, not automatically wrong)"
+          }
+        ]
+      }
+    }
+  ],
+  "overall_table_usage": [
+    {
+      "table": "HR_DB.dbo.Employees",
+      "count": 2,
+      "duplicate": true
+    },
+    {
+      "table": "Benefits_DB.enroll.Enrollments",
+      "count": 1,
+      "duplicate": false
+    },
+    {
+      "table": "Payroll_DB.dbo.Salaries",
+      "count": 1,
+      "duplicate": false
+    }
+  ],
+  "cross_statement_duplicate_logic": [],
+  "cross_statement_duplicate_logic_total": 0,
+  "temp_object_findings": []
+}
