@@ -1,0 +1,187 @@
+{
+  "source": "marketing-campaign-analytics.sql",
+  "dialect": "tsql",
+  "statement_count": 1,
+  "warnings": [],
+  "statements": [
+    {
+      "index": 1,
+      "nodes": [
+        {
+          "id": "output",
+          "type": "output",
+          "label": "Result",
+          "layer": 2
+        },
+        {
+          "id": "cte:campaign_performance_q1",
+          "type": "cte",
+          "label": "campaign_performance_q1",
+          "sql": "select c.campaignid, c.name as campaignname, count(distinct i.impressionid) as totalimpressions, sum(i.cost) as totalspend, avg(i.cpc) as avgcostperclick from mktg.campaigns as c inner join mktg.impressions as i on i.campaignid = c.campaignid where i.impressiondate between '2025-01-01' and '2025-03-31' group by c.campaignid, c.name",
+          "layer": 1,
+          "columns": [
+            "CampaignID",
+            "CampaignName",
+            "TotalImpressions",
+            "TotalSpend"
+          ]
+        },
+        {
+          "id": "cte:campaign_performance_q2",
+          "type": "cte",
+          "label": "campaign_performance_q2",
+          "sql": "select c.campaignid, c.name as campaignname, count(distinct i.impressionid) as totalimpressions, sum(i.cost) as totalspend, avg(i.cpc) as avgcostperclick, c.budget as campaignbudget from mktg.campaigns as c inner join mktg.impressions as i on i.campaignid = c.campaignid where i.impressiondate between '2025-04-01' and '2025-06-30' group by c.campaignid, c.name, c.budget",
+          "layer": 1,
+          "columns": [
+            "CampaignID",
+            "TotalImpressions",
+            "TotalSpend"
+          ]
+        },
+        {
+          "id": "table:mktg.campaigns",
+          "type": "table",
+          "label": "mktg.Campaigns",
+          "layer": 0,
+          "columns": [
+            "Budget",
+            "CampaignID",
+            "Name"
+          ]
+        },
+        {
+          "id": "table:mktg.impressions",
+          "type": "table",
+          "label": "mktg.Impressions",
+          "layer": 0,
+          "columns": [
+            "CampaignID",
+            "Cost",
+            "CPC",
+            "ImpressionDate",
+            "ImpressionID"
+          ]
+        },
+        {
+          "id": "table:mktg.conversions",
+          "type": "table",
+          "label": "mktg.Conversions",
+          "layer": 0,
+          "columns": [
+            "CampaignID",
+            "ConversionDate",
+            "ConversionID"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "source": "table:mktg.campaigns",
+          "target": "cte:campaign_performance_q1"
+        },
+        {
+          "source": "table:mktg.impressions",
+          "target": "cte:campaign_performance_q1"
+        },
+        {
+          "source": "table:mktg.campaigns",
+          "target": "cte:campaign_performance_q2"
+        },
+        {
+          "source": "table:mktg.impressions",
+          "target": "cte:campaign_performance_q2"
+        },
+        {
+          "source": "cte:campaign_performance_q1",
+          "target": "output"
+        },
+        {
+          "source": "cte:campaign_performance_q2",
+          "target": "output"
+        },
+        {
+          "source": "table:mktg.conversions",
+          "target": "output"
+        }
+      ],
+      "table_usage": [
+        {
+          "table": "mktg.Campaigns",
+          "count": 2,
+          "duplicate": true
+        },
+        {
+          "table": "mktg.Impressions",
+          "count": 2,
+          "duplicate": true
+        },
+        {
+          "table": "mktg.Conversions",
+          "count": 1,
+          "duplicate": false
+        }
+      ],
+      "duplicate_logic": [
+        {
+          "a": "cte:campaign_performance_q1",
+          "b": "cte:campaign_performance_q2",
+          "similarity": 0.938,
+          "exact": false
+        }
+      ],
+      "duplicate_logic_total": 1,
+      "sargability_findings": [
+        {
+          "type": "non_sargable_predicate",
+          "detail": "Join condition wraps a column in COALESCE, which usually blocks index use: COALESCE(q1.CampaignID, q2.CampaignID)"
+        }
+      ],
+      "temp_object_findings": [],
+      "score": {
+        "value": 81,
+        "breakdown": [
+          {
+            "factor": "Non sargable predicate",
+            "impact": -8,
+            "detail": "Join condition wraps a column in COALESCE, which usually blocks index use: COALESCE(q1.CampaignID, q2.CampaignID)"
+          },
+          {
+            "factor": "Duplicate CTE/subquery logic",
+            "impact": -5,
+            "detail": "campaign_performance_q1 \u2194 campaign_performance_q2 (94% match)"
+          },
+          {
+            "factor": "Table referenced more than once",
+            "impact": -3,
+            "detail": "mktg.Campaigns referenced 2\u00d7 (could be a self-join - worth a glance, not automatically wrong)"
+          },
+          {
+            "factor": "Table referenced more than once",
+            "impact": -3,
+            "detail": "mktg.Impressions referenced 2\u00d7 (could be a self-join - worth a glance, not automatically wrong)"
+          }
+        ]
+      }
+    }
+  ],
+  "overall_table_usage": [
+    {
+      "table": "mktg.Campaigns",
+      "count": 2,
+      "duplicate": true
+    },
+    {
+      "table": "mktg.Impressions",
+      "count": 2,
+      "duplicate": true
+    },
+    {
+      "table": "mktg.Conversions",
+      "count": 1,
+      "duplicate": false
+    }
+  ],
+  "cross_statement_duplicate_logic": [],
+  "cross_statement_duplicate_logic_total": 0,
+  "temp_object_findings": []
+}
