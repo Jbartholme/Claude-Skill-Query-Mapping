@@ -69,7 +69,7 @@
     background: var(--duplicate-bg); color: var(--duplicate-color); padding: 8px 20px;
     font-size: 12.5px; border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
-  main { flex: 1; display: flex; overflow: hidden; }
+  main { flex: 1; display: flex; overflow: hidden; position: relative; }
   .diagram-pane { flex: 1; overflow: auto; position: relative; background:
     radial-gradient(var(--panel-bg-2) 1px, transparent 1px); background-size: 22px 22px; }
   svg { display: block; }
@@ -88,6 +88,30 @@
   .sidebar {
     width: 320px; border-left: 1px solid var(--border); overflow-y: auto;
     flex-shrink: 0; background: var(--panel-bg);
+    transition: width 0.2s ease;
+  }
+  main.sidebar-collapsed .sidebar {
+    width: 0; min-width: 0; border-left: none; overflow: hidden;
+  }
+  .sidebar-toggle {
+    position: absolute; top: 12px; width: 26px; height: 26px; padding: 0;
+    border-radius: 50%; border: 1px solid var(--border); background: var(--panel-bg);
+    color: var(--fg); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 40; font-size: 13px; line-height: 1;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18); transition: right 0.2s ease;
+  }
+  .sidebar-toggle:focus-visible { outline: 2px solid var(--table-color); outline-offset: 2px; }
+  main.sidebar-open .sidebar-toggle { right: 307px; }
+  main.sidebar-collapsed .sidebar-toggle { right: 7px; }
+  @media (max-width: 700px) {
+    .sidebar {
+      position: absolute; top: 0; right: 0; bottom: 0; width: min(86vw, 360px);
+      min-width: 0; z-index: 30; box-shadow: -6px 0 24px rgba(0,0,0,0.28);
+      transform: translateX(100%); transition: transform 0.22s ease;
+    }
+    main.sidebar-open .sidebar { transform: translateX(0); width: min(86vw, 360px); }
+    main.sidebar-collapsed .sidebar { width: min(86vw, 360px); min-width: 0; border-left: 1px solid var(--border); }
+    main.sidebar-open .sidebar-toggle, main.sidebar-collapsed .sidebar-toggle { right: 8px; top: 8px; }
   }
   .panel { border-bottom: 1px solid var(--border); padding: 14px 16px; }
   .panel h2 {
@@ -163,7 +187,7 @@
   <div class="tabs" id="tabs"></div>
 </header>
 <div id="warningBanner" class="warning-banner" style="display:none"></div>
-<main>
+<main id="mainLayout">
   <div class="diagram-pane" id="diagramPane">
     <div class="search-bar">
       <input type="text" id="searchBox" list="sourceList" placeholder="Search a source (table, CTE, subquery)…" autocomplete="off">
@@ -171,6 +195,7 @@
     </div>
     <svg id="svg"></svg>
   </div>
+  <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Collapse panel" title="Collapse panel">‹</button>
   <div class="sidebar">
     <div class="panel">
       <h2>Score</h2>
@@ -523,6 +548,25 @@ function buildHeader() {
   }
 }
 
+function initSidebarToggle() {
+  const mainEl = document.getElementById('mainLayout');
+  const toggle = document.getElementById('sidebarToggle');
+  const isNarrow = () => window.matchMedia('(max-width: 700px)').matches;
+
+  function setOpen(open) {
+    mainEl.classList.toggle('sidebar-open', open);
+    mainEl.classList.toggle('sidebar-collapsed', !open);
+    toggle.textContent = open ? '›' : '‹';
+    const label = open ? 'Collapse panel' : 'Expand panel';
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
+  }
+
+  toggle.addEventListener('click', () => setOpen(!mainEl.classList.contains('sidebar-open')));
+  setOpen(!isNarrow());
+}
+
 buildHeader();
 render();
+initSidebarToggle();
 </script>
